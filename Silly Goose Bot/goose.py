@@ -206,7 +206,9 @@ def dynamo_updateUser(userID, case, dynamodb = None):
     return response
 
 #set to run on the first of every month, resets the guilty counter of all members in the server
-def dynamo_monthly_reset(ctx):
+def dynamo_monthly_reset(ctx, dynamodb = None):
+    if not dynamodb:
+        dynamo_init()
     for m in ctx.guild.members:
         id_response = dynamo_getCount(m.id, 0)
         if id_response == 'error':
@@ -215,14 +217,11 @@ def dynamo_monthly_reset(ctx):
             dynamo_updateUser(m.id, 0)
 
 #finds the user with the highest guilty counter
-def dynamo_monthlyWinner(ctx):
+def dynamo_monthlyWinner(ctx, dynamodb = None):
+    if not dynamodb:
+        dyanmo_init()
     leader_count = 0
     leader_name = discord.member.Membersilliest_goose = get()
-
-#awards the monthly winner with a special role
-@bot.command()
-async def update_role(ctx):
-    await ctx.send("")
 
 
 token = 'ODUyMzk2OTAyNDY4NDE5NjA0.GU_HH8.IBL377k6tewFWNMpsa1QqSaUMxMoivLv5A2gvs'
