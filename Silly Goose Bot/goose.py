@@ -29,7 +29,7 @@ async def check_date(ctx):
 @bot.event
 async def on_command_error(ctx, error):
     if isinstance(error, CommandNotFound):
-        print("uh oh!")
+        print("error! that command doesn't exist. uh oh!")
 
 #runs everytime the bot turns on
 @bot.event
@@ -52,6 +52,19 @@ async def test(ctx):
 async def ping(ctx):
     await ctx.send("Pong!")
     
+#will check for certain days of the months and perform actions on those specific days
+@tasks.loop(hours=24)
+async def check_date(ctx):
+    date = datetime.now()
+    if(date.day == 1):
+        dynamo_monthly_reset(ctx)
+    elif date.month == 2 and date.day == 28:
+        await dynamo_monthlyWinner(ctx)
+    elif (date.month == 4 or date.month == 6 or date.month == 9 or date.month == 1) and date.day == 30:
+        await dynamo_monthlyWinner(ctx)
+    elif (date.month == 1 or date.month == 3 or date.month == 5 or date.month == 7 or date.month == 8 or date.month == 10 or date.month == 12) and date.day == 31:
+        await dynamo_monthlyWinner(ctx)
+        
 #Silly goose vote
 @bot.command()
 async def vote(ctx):
@@ -143,15 +156,20 @@ async def travel(ctx, member: discord.member.Member):
     await member.move_to(original_channel)
     for channel in ctx.guild.channels:
         await channel.set_permissions(member, connect = True)
-    
+    #one bug that may arise from this is that channels that were previously unavailable to certain members might now be accessible, should test this
 
-def dynamo_init():
-    dynamodb = boto3.resource('dynamodb', region_name = 'us-east-2')
+def dynamo_userCheck(userID, dynamodb = None):
+    if not dynamodb:
+        dynamobo = boto3.resource('dynamodb', region_name = 'us-east-2')
+    if dynamo_getCount(userID) == 'error':
+        dynamo_addUser(userID)
+    else:
+        dynamo_updateUser(userID, 1)
 
 #if user is not in the dynamodb database, adds user
 def dynamo_addUser(userID, dynamodb = None):
     if not dynamodb:
-        dynamo_init()
+        dynamodb = boto3.resource('dynamodb', region_name = 'us-east-2')
     table = dynamodb.Table(f"{server_id}")
     response = table.put_item(
         Item = {
@@ -161,12 +179,14 @@ def dynamo_addUser(userID, dynamodb = None):
             }
         }
     )
+    #being_silly_dynamo(userID, 0) / dunno what this does yet
+    return response
 
-#returns the guilty counter for the given member
+#returns the monthly counter for the given member
 def dynamo_getCount(userID, dynamodb = None):
     try:
         if not dynamodb:
-            dynamo_init()
+            dynamodb = boto3.resource('dynamodb', region_name = 'us-east-2')
         table = dynamodb.Table(f'{server_id}')
 
         try:
@@ -183,12 +203,12 @@ def dynamo_getCount(userID, dynamodb = None):
 #updates associated values based on case
 def dynamo_updateUser(userID, case, dynamodb = None):
     if not dynamodb:
-        dynamo_init()
+        dynamodb = boto3.resource('dynamodb', region_name = 'us-east-2')
     
     table = dynamodb.Table(f'{server_id}')
     geese = dynamo_getCount(userID)
 
-    #if case is 0, we are trying to reset the user's guilty counter
+    #if case is 0, we are trying to reset the user's monthly counter
     if case == 0:
         value = 0
     elif case == 1:
@@ -205,10 +225,10 @@ def dynamo_updateUser(userID, case, dynamodb = None):
     )
     return response
 
-#set to run on the first of every month, resets the guilty counter of all members in the server
+#set to run on the first of every month, resets the monthly counter of all members in the server
 def dynamo_monthly_reset(ctx, dynamodb = None):
     if not dynamodb:
-        dynamo_init()
+        dynamodb = boto3.resource('dynamodb', region_name = 'us-east-2')
     for m in ctx.guild.members:
         id_response = dynamo_getCount(m.id, 0)
         if id_response == 'error':
@@ -216,7 +236,7 @@ def dynamo_monthly_reset(ctx, dynamodb = None):
         else:
             dynamo_updateUser(m.id, 0)
 
-#finds the user with the highest guilty counter
+#finds the user with the highest monthly counter
 def dynamo_monthlyWinner(ctx, dynamodb = None):
     if not dynamodb:
         dyanmo_init()
@@ -224,5 +244,5 @@ def dynamo_monthlyWinner(ctx, dynamodb = None):
     leader_name = discord.member.Membersilliest_goose = get()
 
 
-token = 'ODUyMzk2OTAyNDY4NDE5NjA0.GU_HH8.IBL377k6tewFWNMpsa1QqSaUMxMoivLv5A2gvs'
+token = ''
 bot.run(token)
